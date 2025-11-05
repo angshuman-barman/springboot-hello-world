@@ -1,0 +1,134 @@
+## Github and SourceTree and Project
+
+*Maven
+--> Add the bin location in the path
+	--> C:\Program Files\Apache\Maven\apache-maven-3.9.11
+	--> Now, mvn -v will give us the version of maven in CMD.
+	
+* If your .m2 repository is deleted,
+	--> move to the location where your project's pom.xml is present.
+	--> open cmd
+	--> run mvn clean install (Maven Build to download the repositories).
+	--> This will re-download all required JARs into a new .m2 directory 
+		under your user folder (e.g., C:\Users\<username>\.m2)
+	--> restart vscode if it is not able to resolve the dependency
+		--> run "mvn dependency:resolve"
+		
+* What is this ssh and https in github when I created a new repo?
+🔐 1. HTTPS (HyperText Transfer Protocol Secure)
+		URL looks like:
+		https://github.com/username/repo-name.git
+		
+		Authentication:
+		You use your GitHub username and Personal Access Token (PAT) to authenticate when pushing 
+		or pulling code.
+		(GitHub no longer allows password authentication.)
+		
+		Pros:
+		Easy to set up.
+		Works from anywhere (no special key setup).
+		Good for beginners.
+
+		Cons:
+		You must enter credentials (or use a credential manager) for every push/pull if not cached.
+		Slightly slower than SSH for repeated operations.
+
+🔑 2. SSH (Secure Shell)
+
+		URL looks like:
+		git@github.com:username/repo-name.git
+
+		Authentication:
+		Uses a cryptographic SSH key pair:
+		A private key stored safely on your computer.
+		A public key added to your GitHub account.
+
+		Pros:
+		Once set up, no need to enter credentials each time.
+		More secure and convenient for long-term use.
+		Often preferred by developers.
+
+		Cons:
+		Requires one-time setup (generating and adding SSH keys).
+		Can be tricky for beginners.
+	
+	1. echo "# springboot-hello-world" >> README.md
+	2. git init
+	3. git add README.md
+	4. git commit -m "first commit"
+	5. git branch -M main //changes the name of the current branch to main even if the branch with 
+							name 'main' already exist.
+	6. git remote add origin https://github.com/angshuman-barman/springboot-hello-world.git
+		//Adding a connection with the remote repo "springboot-hello-world.git"
+	7. git push -u origin main //Pushing it to the remote repo.
+
+* Connect SourceTree to Github Account
+	--> Tools --> Options --> Authentication --> Github --> OAuth
+
+* What is README.md?
+	A README.md file is a text file (written in Markdown format) that describes your project.
+	It’s usually the first thing people see when they visit your GitHub repo.
+	It tells others:
+		What your project does 💡
+		How to install or run it ⚙️
+		What technologies you used 🧠
+		How others can contribute 🤝
+		Who built it 🙋‍♂️
+	When someone opens your repo (e.g., github.com/angshuman-barman/springboot-hello-world),
+	the README.md content appears right below the file list — not as plain text, but fully formatted.
+	
+
+*** The Steps required to deploy the application:
+1. Prepare the application in SpringBoot.
+2. Create a repo in Github.
+3. Download SourceTree.
+4. In the Tools --> Options --> OAuth and Github under Authentication --> Add the Github Account.
+5. Clone the Github Remote Repo and check the local repo.
+6. Create a feature branch "feature/HelloWorld" in Github and then use the fetch command in SourceTree.
+7. create the README.md file to understand the project.
+8. Connect Render Server
+9. Use Docker Environment where we use Dockerfile (no extension).
+10. # Stage 1: Build the app
+	--> FROM maven:3.9.9-eclipse-temurin-17 AS build
+		Starts from a base image that already contains Maven and Eclipse Temurin JDK 17. This image
+		can compile and package your Java application. The AS build names the stage so later stages
+		can copy files from it.
+	--> WORKDIR /app
+		That means — from this point onward, any command you run inside the container (like COPY,
+		RUN, or CMD) will automatically happen inside /app, unless you specify a different path.
+	--> COPY pom.xml .
+	--> COPY src ./src
+		Copies the Maven project descriptor (pom.xml) and the src tree into the image. The order 
+		matters for Docker layer caching: copying pom.xml first means if only source files change
+		but dependencies in pom.xml do not, cached dependency resolution can be reused in rebuilds
+		(faster builds). However, copying the whole src forces rebuild of later layers when code 
+		changes.
+	--> RUN mvn clean package -DskipTests
+		Runs Maven inside the container to compile code and produce the fat/boot JAR under target/.
+		-DskipTests speeds builds by skipping tests; omit when you want tests run. After this step
+		the image contains target/*.jar ready to be used by the runtime stage.
+		
+	--> So the workflow is:
+		Start from base image → has Maven & JDK, but no project files.
+		Copy pom.xml and src/ → container now has your project.
+		Run mvn package → container builds the JAR.
+
+	# Stage 2: Run the app
+	--> FROM eclipse-temurin:17-jdk
+		Uses the official Eclipse Temurin JDK 17 image.
+		This image only has Java 17 installed, no Maven, no source code.
+		Purpose: a lightweight environment to run your compiled app.
+	--> WORKDIR /app
+	--> COPY --from=build /app/target/*.jar app.jar
+	--> EXPOSE 8080
+		Tells Docker (and platforms like Render) that your app listens on port 8080.
+	--> ENTRYPOINT ["java", "-jar", "app.jar"]
+		Starts your Spring Boot application.
+		Using ENTRYPOINT makes this the default command for the container.
+		java -jar app.jar
+	
+	--> Two images are built internally:
+		Build image (Maven + JDK + src + pom.xml) → produces JAR
+		Runtime image (JDK + JAR) → lightweight, runs the app
+		Only the final runtime image is used when you start a container.
+11. Use the Build Filter inside Render to use the filter for which Auto Build works for any new commit.
